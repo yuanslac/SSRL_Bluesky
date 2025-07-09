@@ -1,4 +1,4 @@
-from ophyd import EpicsMotor, Component as Cpt, EpicsSignal, Signal
+from ophyd import EpicsMotor, Component as Cpt, EpicsSignal,  Signal
 from ophyd.status import Status
 import threading
 import time
