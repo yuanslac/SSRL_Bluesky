@@ -1,6 +1,6 @@
 from ophyd.areadetector.detectors import EigerDetector
 from ophyd import EpicsMotor
-from ophyd import Device, Component as Cpt, EpicsSignal
+from ophyd import Device, Component as Cpt,  EpicsSignal
 from ophyd.areadetector.cam import CamBase
 from ophyd.areadetector.plugins import HDF5Plugin
 from ophyd.areadetector.trigger_mixins import SingleTrigger
