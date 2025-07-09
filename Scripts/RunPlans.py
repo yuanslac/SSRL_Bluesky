@@ -1,5 +1,5 @@
 from bluesky import RunEngine
-from bluesky.plan_stubs import mv, trigger_and_read, stage, unstage, sleep
+from bluesky.plan_stubs import mv, trigger_and_read, stage,  unstage, sleep
 from bluesky.preprocessors import run_decorator
 from bluesky.plans import count, scan, list_scan
 from ophyd import EpicsMotor as motor
