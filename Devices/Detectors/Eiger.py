@@ -98,7 +98,7 @@ class Eiger_SSRL(SingleTrigger, EigerDetector):
     hdf1 = Cpt(HDF5Plugin, 'HDF1:')
 
 
-def MyEigerDetector(prefix="BL172:eiger4m:", *, name="eiger") -> Eiger_SSRL :
+def MyEigerDetector(prefix="BL172:eiger4M:", *, name="eiger") -> Eiger_SSRL :
     det = Eiger_SSRL(prefix, name=name)
 
     det.read_attrs = ["hdf1"]
