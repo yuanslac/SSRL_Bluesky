@@ -1,1 +1,183 @@
-hi
+SSRL MSD Bluesky RunBook
+
+	Setup bluesky environment:   bash: conda activate bluesky-project
+	/home/yuanhu/.ipython/profile_default/startup/00_startup.py :  IPython startup script for initializing Ophyd devices and loading libraries
+	/home/yuanhu/anaconda3/ssrl_pkgs:  directory for custom Ophyd classes 
+      o	DAQ_Eiger_classes.py:  Ophyd class tailed for Eiger detector, Inherits from SingleTrigger and EigerDetector.  Override default CamBase components with Eiger-specific PVs.
+      o	DAQ_Stepper_classes.py: customized Ophyd class tailed for Stepper motor, Inherits from EpicsMotor, and define how motion is handled based on the motor controller customized in SSRL
+	/home/yuanhu/anaconda3/ssrl_test :  directory to set up beamline devices and user-defined functions for data acquisition
+      o	BL172_detectors_init.py: instantiate the Eiger 1m detector for BL172
+      o	BL172_motors_init.py: instantiate the MDriver motor M1, Stepper motor and beamstop
+      o	BL172_RunPlan_module.py: customized Bluesky Run plans for burst scan and multiple images scan over positions using external trigger
+      o	eiger_functions.py: Functions for configuring the Eiger detector and executing multiple predefined run plans
+
+Python scripts
+BL172_detectors_init.py: 
+### instantiate the detectors for BL172 and define custom configurations for Eiger detector
+def init_BL172_detectors(eiger_prefix='BL172:eiger4M:'):
+    eiger = MyEigerDetector(prefix=eiger_prefix, name='eiger')
+    return eiger
+
+eiger_functions.py: 
+
+### Functions for configuring the Eiger detector and executing multiple predefined run plans.
+
+get_eiger_config(eiger): display the current values of some critical PVs/variables 
+    name_pattern = eiger.cam.FWNamePattern
+    data_directory = eiger.hdf1.file_path
+
+    count_time = eiger.cam.acquire_time
+    frame_time = eiger.cam.acquire_period
+
+    nimages = eiger.cam.num_images
+    images_per_file = eiger.cam.FWNImagesPerFile
+
+    trigger = eiger.cam.trigger_mode
+    ntriggers = eiger.cam.num_triggers
+
+eiger_set_fname(eiger, fname): set file writer name pattern
+eiger_set_dir(eiger, dir_path): setoutput file directory
+eiger_set_frametime(eiger, frametime):  set image acquisition period / frame time
+eiger_set_acqtime(eiger, acqtime): set image acquisition / exposure time
+eiger_set_nimages(eiger, nimages): set number of images per trigger
+eiger_set_nimages_per_file(eiger, nimages_per_file): set number of images per saved data file
+eiger_set_trigger_mode(eiger, trigger_mode):  set the trigger mode:  0 - Internal, 1 - External Enable, 2 - External Trigger, 3 - Burst Trigger, 4 - Gate
+eiger_set_ntriggers(eiger, ntriggers): set number of triggers 
+eiger_set_image_mode(eiger, image_mode): set image mode;  0 - Single, 1 - Multiple, 2 - Continuous
+
+### setup with internal software trigger 
+def set_int_trig(
+    eiger: MyEigerDetector,
+    fname: str,
+    dir_path: str,
+    acqtime: float,
+    frametime: float,
+    nimagesperfile: int,
+    nimages: int,
+    savemode: int = None
+):    setup Eiger parameters for internal software trigger
+
+    eiger.cam.stage_sigs["trigger_mode"] = 0
+    eiger.cam.stage_sigs["image_mode"] = 1
+    eiger.cam.stage_sigs["num_triggers"] = 1
+
+use cases for set_int_trig()
+set_int_trig (eiger, fname='yuan_test', dir_path='/data/eiger/filewriter/', acqtime=0.1, frametime=1, nimagesperfile=1,nimages=1, savemode=1)
+  1.	Burst scan at one position, repeatedly N times
+    RE(count([eiger], num=N))
+  2.	 Do a scan with 1 image per position, set nimages=1
+    RE(scan([eiger], m1, 0, 5, 6))  # 6 steps from 0 to 5
+    or
+    positions = [0, 1, 2, 3, 4]
+    RE(list_scan([eiger], m1, positions))
+  3.	 Do a scan with multi images per position, set nimages >1
+    RE(scan([eiger], m1, 0, 5, 6))  # 6 steps from 0 to 5
+    or
+    positions = [0, 1, 2, 3, 4]
+    RE(list_scan([eiger], m1, positions))
+
+### setup with external trigger 
+def set_ext_trig_burst(
+    eiger: MyEigerDetector,
+    fname: str,
+    dir_path: str,
+    acqtime: float,
+    frametime: float,
+    trigger_mode: str,
+    burst_size: int,
+    nimagesperfile: int,
+    ntriggers: int,
+    savemode: int = None
+):  setup Eiger parameters for external burst trigger
+    nimages = burst_size * ntriggers
+    eiger.cam.stage_sigs["num_images"] = nimages
+    eiger.cam.stage_sigs["trigger_mode"] = 3      #  3,  Burst mode 
+    eiger.cam.stage_sigs["image_mode"] = 1     # Multiple
+    eiger.cam.stage_sigs["num_triggers"] = ntriggers
+
+use cases for set_ext_trig_burst ()
+set_ext_trig_burst (eiger, fname='yuan_test', dir_path='/data/eiger/filewriter/', acqtime=0.1, frametime=1, trigger_mode=3, burst_size=10, nimagesperfile=1, ntriggers=5, savemode=0)
+  1.	Burst scan at one position, 
+      """
+      within iPython: 
+      RE(ext_trig_burst(eiger, burst_size=10, ntriggers=5))
+      """
+def set_ext_trig_multi_scan(
+    eiger: MyEigerDetector,
+    fname: str,
+    dir_path: str,
+    acqtime: float,
+    frametime: float,
+    trigger_mode: str,
+    images_per_point: int,
+    nimagesperfile: int,
+    npositions: int,
+    savemode: int = None
+):  setup Eiger parameters for multi position scan with external trigger
+
+    nimages = images_per_point * npositions
+    eiger.cam.stage_sigs["num_images"] = nimages
+    eiger.cam.stage_sigs["trigger_mode"] = 1    #  1,  External trigger Enable
+    eiger.cam.stage_sigs["image_mode"] = 2    # Continuous (accept multiple triggers)
+
+use cases for set_ext_trig_multi_scan ()
+set_ext_trig_multi_scan (eiger, fname='yuan_test', dir_path='/data/eiger/filewriter/', acqtime=0.1, frametime=1, trigger_mode=1, images_per_point=1, nimagesperfile=1, npositions=1, savemode=0)
+  """
+  within iPython: 
+  1.	scan with 1 image per position
+      positions = [1.0, 2.0, 3.0, 4.0]
+      RE(ext_trig_multi_scan(eiger, m1, positions, images_per_point=1))
+      or 
+      positions = np.linspace(0, 10, 6).tolist()
+      RE(ext_trig_multi_scan(eiger, m1, positions, images_per_point=1))
+  2.	scan with multi-images per position
+      positions = [1.0, 2.0, 3.0, 4.0]
+      RE(ext_trig_multi_scan(eiger, m1, positions, images_per_point=5))
+      or 
+      positions = np.linspace(0, 10, 6).tolist()
+      RE(ext_trig_multi_scan(eiger, m1, positions, images_per_point=5))
+  """
+
+
+BL172_RunPlan_module.py: 
+"""
+1.	Run plan for a burst scan using external triggers at one fixed position.
+"""
+  def ext_trig_burst(det, burst_size, ntriggers=1):
+
+    total_images = burst_size * ntriggers
+"""
+within iPython: 
+  1.	RE(ext_trig_burst(eiger, burst_size=10, ntriggers=5))
+"""
+####################################################
+"""
+  2.	Scan over positions, collecting multiple images per position
+    using external triggering (one TTL pulse per image).
+"""
+
+  def ext_trig_multi_scan(det, motor, positions, images_per_point=1):
+    
+    total_images = len(positions) * images_per_point
+"""
+within iPython: 
+
+1.	a scan with 1 image per position
+    positions = [1.0, 2.0, 3.0, 4.0]
+    RE(ext_trig_multi_scan(eiger, m1, positions, images_per_point=1))
+    or 
+    positions = np.linspace(0, 10, 6).tolist()
+    RE(ext_trig_multi_scan(eiger, m1, positions, images_per_point=1))
+
+2.	 a scan with multi-images per position
+    positions = [1.0, 2.0, 3.0, 4.0]
+    RE(ext_trig_multi_scan(eiger, m1, positions, images_per_point=5))
+    or 
+    positions = np.linspace(0, 10, 6).tolist()
+    RE(ext_trig_multi_scan(eiger, m1, positions, images_per_point=5))
+
+"""
+
+
+
+
