@@ -8,7 +8,7 @@ from ophyd.areadetector.trigger_mixins import SingleTrigger
 import time
 
 def init_BL172_detectors(
-    eiger_prefix='BL172:eiger4m:'
+    eiger_prefix='BL172:eiger4M:'
 ):
 
     # Instantiate and configure Eiger detector
