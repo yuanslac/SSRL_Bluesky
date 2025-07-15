@@ -1,7 +1,7 @@
 from bluesky import RunEngine, plan_stubs as bps
 from bluesky.preprocessors import run_decorator
 from ophyd import EpicsMotor
-from Stepper import StepperEpicsMotor
+from Devices.Motors.Stepper import StepperEpicsMotor
 import time
 
 def init_BL172_motor(
