@@ -1,6 +1,6 @@
 from bluesky import RunEngine, plan_stubs as bps
 from bluesky.preprocessors import run_decorator
-from Eiger import MyEigerDetector
+from Devices.Detectors.Eiger import MyEigerDetector
 from ophyd import Device, Component as Cpt, EpicsSignal
 from ophyd.areadetector.cam import CamBase
 from ophyd.areadetector.plugins import HDF5Plugin
